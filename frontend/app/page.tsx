@@ -1,6 +1,6 @@
 // app/page.tsx
 import { fetchKing, fetchPlayers, fetchMatches } from "@/lib/api";
-import dayjsTz from "../lib/dayjsTz";
+import dayjsTz from "@/lib/dayjsTz";
 
 export default async function LandingPage() {
   const [kingData, players, matches] = await Promise.all([
