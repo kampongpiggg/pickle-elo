@@ -76,7 +76,7 @@ function getArchetypeBadgeClasses(name: string): string {
   return "bg-gray-50 text-gray-700 border-gray-200";
 }
 
-const PLAYER_EMOJI_MAP = {
+const PLAYER_EMOJI_MAP: Record<String, String> = {
   'alexia': '🥵',
   'xianhao': '🥵',
   'shaoping': '🧐',
