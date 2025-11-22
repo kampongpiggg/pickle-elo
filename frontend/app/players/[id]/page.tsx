@@ -76,6 +76,15 @@ function getArchetypeBadgeClasses(name: string): string {
   return "bg-gray-50 text-gray-700 border-gray-200";
 }
 
+const PLAYER_EMOJI_MAP = {
+  'alexia': '🥵',
+  'xianhao': '🥵',
+  'shaoping': '🧐',
+  'brian': '😎',
+  'siewhan': '',
+  'jiawei': '😡'
+}
+
 // Rating chart with axes
 function RatingHistoryChart({ points }: { points: RatingPoint[] }) {
   if (points.length === 0) return <p>No rating history yet.</p>;
@@ -218,11 +227,15 @@ export default function PlayerDetail({
 
   const title = getTitleFromRating(player.rating);
 
+  const playerEmoji = PLAYER_EMOJI_MAP?.[player.name] ?? '🙂';
+
+  const playerName = `${player.name} ${playerEmoji}`
+
   return (
     <main style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem" }}>
       {/* Header */}
       <section style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{player.name}</h1>
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{playerName}</h1>
 
         <p>
           Rating: <strong>{player.rating}</strong> ({title})
