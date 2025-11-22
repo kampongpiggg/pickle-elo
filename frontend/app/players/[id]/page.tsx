@@ -76,12 +76,12 @@ function getArchetypeBadgeClasses(name: string): string {
   return "bg-gray-50 text-gray-700 border-gray-200";
 }
 
-const PLAYER_EMOJI_MAP: Record<String, String> = {
+const PLAYER_EMOJI_MAP: Record<string, string> = {
   'alexia': '🥵',
   'xianhao': '🥵',
   'shaoping': '🧐',
   'brian': '😎',
-  'siewhan': '',
+  'siewhan': '😈',
   'jiawei': '😡'
 }
 
@@ -236,7 +236,6 @@ export default function PlayerDetail({
       {/* Header */}
       <section style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{playerName}</h1>
-
         <p>
           Rating: <strong>{player.rating}</strong> ({title})
         </p>
