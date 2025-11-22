@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+import dayjsTz from "@/lib/dayjsTz";
 
 type MatchPlayer = {
   player_id: number;
@@ -148,7 +149,7 @@ export default function MatchesPage() {
       {!loading &&
         matches.map((m) => {
           const playedDate = m.played_at
-            ? new Date(m.played_at).toLocaleString()
+            ? dayjsTz.utc(m.played_at).tz(dayjsTz.tz.guess()).format('LLLL')
             : "Unknown time";
 
           const teamA = m.players.filter((p) => p.team_side === "A");
