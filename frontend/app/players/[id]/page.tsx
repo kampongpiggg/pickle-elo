@@ -46,12 +46,14 @@ type RatingPoint = {
   rating_after: number;
 };
 
-function getTitleFromRating(rating: number): string {
-  if (rating < 950) return "Noob";
-  if (rating < 1050) return "Amateur";
-  if (rating < 1150) return "Professional";
-  if (rating < 1225) return "Expert";
-  if (rating < 1300) return "Master";
+// 7-tier title system
+function getTitleFromRating(r: number): string {
+  if (r < 920) return "Useless Fuck";
+  if (r < 960) return "Court Jester";
+  if (r < 990) return "Amateur";
+  if (r < 1010) return "Professional";
+  if (r < 1040) return "Veteran";
+  if (r < 1080) return "Master";
   return "Grandmaster";
 }
 
