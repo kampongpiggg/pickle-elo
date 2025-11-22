@@ -1,6 +1,6 @@
 // app/page.tsx
 import { fetchKing, fetchPlayers, fetchMatches } from "@/lib/api";
-import dayjs from "dayjs";
+import dayjsTz from "../lib/dayjsTz";
 
 export default async function LandingPage() {
   const [kingData, players, matches] = await Promise.all([
@@ -29,6 +29,8 @@ export default async function LandingPage() {
 
   const totalPlayers = players.length;
   const totalMatches = matches.length;
+
+  console.log(dayjsTz.tz.guess())
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -96,7 +98,7 @@ export default async function LandingPage() {
                 <div className="flex flex-col gap-1 text-xs text-gray-500 mt-1">
                   <span>
                     Crowned since{" "}
-                    {dayjs(kingData.since).format("DD MMM YYYY HH:mm")}
+                    {dayjsTz.utc(kingData.since).tz(dayjsTz.tz.guess()).format("DD MMM YYYY HH:mm")}
                   </span>
                   <span>
                     Held for <strong>{kingData.days}</strong> days
@@ -184,7 +186,7 @@ export default async function LandingPage() {
                   >
                     <div>
                       <p className="text-xs text-gray-400">
-                        {dayjs(m.played_at).format(
+                        {dayjsTz.utc(m.played_at).tz(dayjsTz.tz.guess()).format(
                           "DD MMM YYYY • HH:mm"
                         )}{" "}
                         • {m.format.toUpperCase()}
