@@ -30,8 +30,6 @@ export default async function LandingPage() {
   const totalPlayers = players.length;
   const totalMatches = matches.length;
 
-  console.log(dayjsTz.tz.guess())
-
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 py-8 md:px-8 space-y-8">
@@ -98,7 +96,7 @@ export default async function LandingPage() {
                 <div className="flex flex-col gap-1 text-xs text-gray-500 mt-1">
                   <span>
                     Crowned since{" "}
-                    {dayjsTz.utc(kingData.since).tz(dayjsTz.tz.guess()).format("DD MMM YYYY HH:mm")}
+                    {dayjsTz.utc(kingData.since).tz(dayjsTz.tz.guess()).format("LLL")}
                   </span>
                   <span>
                     Held for <strong>{kingData.days}</strong> days
