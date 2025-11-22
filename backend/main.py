@@ -7,6 +7,11 @@ from elo import PlayerStat, apply_match
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 
+
+"""
+This WebApp is dedicated to my friends! I will have fun kicking their asses in pickleball.
+"""
+
 class PlayerStatIn(BaseModel):
     player_id: int
     team_side: str  # "A" or "B"
