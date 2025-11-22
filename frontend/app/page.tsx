@@ -12,7 +12,7 @@ export default async function LandingPage() {
   // Sort all players by rating (highest first)
   const sortedPlayers = [...players].sort((a, b) => b.rating - a.rating);
 
-  // Build a map: playerId -> global rank (1-based)
+  // Build a map: playerId -> global rank (start from 1)
   const rankMap = new Map<number, number>(
     sortedPlayers.map((p, index) => [p.id, index + 1])
   );
