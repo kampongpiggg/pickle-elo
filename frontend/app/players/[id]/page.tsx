@@ -227,7 +227,7 @@ export default function PlayerDetail({
 
   const title = getTitleFromRating(player.rating);
 
-  const playerEmoji = PLAYER_EMOJI_MAP?.[player.name] ?? '🙂';
+  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? '🙂';
 
   const playerName = `${player.name} ${playerEmoji}`
 
