@@ -12,17 +12,24 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* ❌ Remove dark-mode override so we are always light
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-*/
+/* We stay always light mode, so no dark override */
 
 body {
-  background: #ffffff;          /* force white */
-  color: #171717;               /* dark text */
+  background-color: #ffffff;         /* base */
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
+
+  /* --- 🎨 Cute knight background --- */
+  background-image: url("/knight-bg.png");
+  background-repeat: no-repeat;
+  background-position: bottom right;
+  background-size: min(45vw, 520px);
+}
+
+/* Optional: adjust for mobile so it doesn't crowd content */
+@media (max-width: 640px) {
+  body {
+    background-size: 60vw;
+    background-position: bottom right;
+  }
 }
