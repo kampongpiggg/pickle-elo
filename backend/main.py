@@ -1,12 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from sqlmodel import SQLModel, create_engine, Session, select, delete
-from typing import List, Literal
+from typing import List
 from pydantic import BaseModel
 from models import Player, Match, MatchPlayer
 from elo import PlayerStat, apply_match
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
-from video_analysis import analyze_video_to_json
+
 
 """
 This WebApp is dedicated to my friends! I will have fun kicking their asses in pickleball.
@@ -27,147 +27,6 @@ class MatchIn(BaseModel):
 class MatchUpdate(BaseModel):
   scoreA: int
   scoreB: int
-
-class EloPayload(BaseModel):
-    format: str
-    scoreA: int
-    scoreB: int
-    players: List[PlayerStatIn]  # reuse the existing type
-
-class VideoAnalysisResult(BaseModel):
-    source: str = "video_cv"  # e.g. "video_cv"
-    video: dict
-    match: dict
-    players: List[dict]
-    rallies: List[dict] = []
-    elo_payload: EloPayload
-
-class PlayerPositionIn(BaseModel):
-    position: Literal["BOTTOM_LEFT", "BOTTOM_RIGHT", "TOP_LEFT", "TOP_RIGHT"]
-    player_id: int
-
-class VideoProcessIn(BaseModel):
-    storage_path: str          # e.g. "videos/abc123.mp4" in your Supabase bucket
-    format: str                # "singles" or "doubles"
-    players: List[PlayerPositionIn]
-
-# NEW: core helper to reuse in /matches and /video-analysis-result
-def create_match_core(session: Session, match_in: MatchIn, source: str = "manual", analytics: dict | None = None):
-    """
-    Core logic to create a match, apply Elo, and persist everything.
-    Optionally attaches source + analytics on the Match row.
-    """
-    # 1. Load all involved players
-    player_ids = [p.player_id for p in match_in.players]
-    players = session.exec(
-        select(Player).where(Player.id.in_(player_ids))
-    ).all()
-
-    if len(players) != len(set(player_ids)):
-        found_ids = {p.id for p in players}
-        missing = [pid for pid in player_ids if pid not in found_ids]
-        raise ValueError(f"Some player_ids not found in DB: {missing}")
-
-    # 2. Auto-fill winners/errors if all zeros (your existing logic)
-    no_stats_tracked = all(
-        (p.winners == 0 and p.errors == 0) for p in match_in.players
-    )
-
-    if no_stats_tracked:
-        teamA = [p for p in match_in.players if p.team_side == "A"]
-        teamB = [p for p in match_in.players if p.team_side == "B"]
-
-        def split_points(total: int, n: int) -> list[int]:
-            if n <= 0:
-                return []
-            base = total // n
-            rem = total % n
-            return [base + (1 if i < rem else 0) for i in range(n)]
-
-        if match_in.format == "singles":
-            if len(teamA) == 1 and len(teamB) == 1:
-                a = teamA[0]
-                b = teamB[0]
-                a.winners = match_in.scoreA
-                a.errors = match_in.scoreB
-                b.winners = match_in.scoreB
-                b.errors = match_in.scoreA
-        elif match_in.format == "doubles":
-            if len(teamA) >= 1:
-                a_winners_split = split_points(match_in.scoreA, len(teamA))
-                a_errors_split = split_points(match_in.scoreB, len(teamA))
-                for i, p in enumerate(teamA):
-                    p.winners = a_winners_split[i]
-                    p.errors = a_errors_split[i]
-            if len(teamB) >= 1:
-                b_winners_split = split_points(match_in.scoreB, len(teamB))
-                b_errors_split = split_points(match_in.scoreA, len(teamB))
-                for i, p in enumerate(teamB):
-                    p.winners = b_winners_split[i]
-                    p.errors = b_errors_split[i]
-
-    # 3. Rating map
-    rating_map = {p.id: p.rating for p in players}
-
-    # 4. Build PlayerStat list for Elo
-    player_stats: List[PlayerStat] = []
-    for p_in in match_in.players:
-        before_rating = rating_map[p_in.player_id]
-        ps = PlayerStat(
-            player_id=p_in.player_id,
-            team_side=p_in.team_side,
-            winners=p_in.winners,
-            errors=p_in.errors,
-            rating_before=before_rating,
-        )
-        player_stats.append(ps)
-
-    # 5. Elo
-    elo_result = apply_match(
-        match_format=match_in.format,
-        scoreA=match_in.scoreA,
-        scoreB=match_in.scoreB,
-        players=player_stats,
-    )
-
-    # 6. Create Match record (now includes source + analytics)
-    match = Match(
-        format=match_in.format,
-        scoreA=match_in.scoreA,
-        scoreB=match_in.scoreB,
-        source=source,
-        analytics=analytics,
-    )
-    session.add(match)
-    session.commit()
-    session.refresh(match)
-
-    # 7. Create MatchPlayer rows + update Player ratings
-    for p_in in match_in.players:
-        res = elo_result[p_in.player_id]
-        mp = MatchPlayer(
-            match_id=match.id,
-            player_id=p_in.player_id,
-            team_side=p_in.team_side,
-            winners=p_in.winners,
-            errors=p_in.errors,
-            rating_before=res["before"],
-            rating_after=res["after"],
-        )
-        session.add(mp)
-
-        player = next(pl for pl in players if pl.id == p_in.player_id)
-        player.rating = res["after"]
-
-    session.commit()
-
-    return {
-        "match_id": match.id,
-        "format": match.format,
-        "scoreA": match.scoreA,
-        "scoreB": match.scoreB,
-        "rating_updates": elo_result,
-    }
 
 app = FastAPI()
 
@@ -210,10 +69,128 @@ def create_player(name: str):
 
 @app.post("/matches")
 def create_match(match_in: MatchIn):
+    """
+    Create a match, apply Elo updates, store everything in the DB.
+    """
     with Session(engine) as session:
-        result = create_match_core(session, match_in, source="manual", analytics=None)
-        return result
+        # 1. Load all involved players from DB
+        player_ids = [p.player_id for p in match_in.players]
+        players = session.exec(
+            select(Player).where(Player.id.in_(player_ids))
+        ).all()
 
+        # Sanity check: did we find them all?
+        if len(players) != len(set(player_ids)):
+            found_ids = {p.id for p in players}
+            missing = [pid for pid in player_ids if pid not in found_ids]
+            raise ValueError(f"Some player_ids not found in DB: {missing}")
+
+        # 2. If no winners/errors were tracked, auto-fill them from the score
+        no_stats_tracked = all(
+            (p.winners == 0 and p.errors == 0) for p in match_in.players
+        )
+
+        if no_stats_tracked:
+            teamA = [p for p in match_in.players if p.team_side == "A"]
+            teamB = [p for p in match_in.players if p.team_side == "B"]
+
+            # Helper to split points roughly evenly across n players
+            def split_points(total: int, n: int) -> list[int]:
+                if n <= 0:
+                    return []
+                base = total // n
+                rem = total % n
+                return [base + (1 if i < rem else 0) for i in range(n)]
+
+            if match_in.format == "singles":
+                # Expect exactly 1 per team
+                if len(teamA) == 1 and len(teamB) == 1:
+                    a = teamA[0]
+                    b = teamB[0]
+                    # winners = points won, errors = points lost
+                    a.winners = match_in.scoreA
+                    a.errors = match_in.scoreB
+                    b.winners = match_in.scoreB
+                    b.errors = match_in.scoreA
+            elif match_in.format == "doubles":
+                # Split team points across teammates
+                if len(teamA) >= 1:
+                    a_winners_split = split_points(match_in.scoreA, len(teamA))
+                    a_errors_split = split_points(match_in.scoreB, len(teamA))
+                    for i, p in enumerate(teamA):
+                        p.winners = a_winners_split[i]
+                        p.errors = a_errors_split[i]
+
+                if len(teamB) >= 1:
+                    b_winners_split = split_points(match_in.scoreB, len(teamB))
+                    b_errors_split = split_points(match_in.scoreA, len(teamB))
+                    for i, p in enumerate(teamB):
+                        p.winners = b_winners_split[i]
+                        p.errors = b_errors_split[i]
+
+        # 3. Build rating map from current Player.rating
+        rating_map = {p.id: p.rating for p in players}
+
+        # 4. Build PlayerStat list (for the Elo module)
+        player_stats: List[PlayerStat] = []
+        for p_in in match_in.players:
+            before_rating = rating_map[p_in.player_id]
+            ps = PlayerStat(
+                player_id=p_in.player_id,
+                team_side=p_in.team_side,
+                winners=p_in.winners,
+                errors=p_in.errors,
+                rating_before=before_rating,
+            )
+            player_stats.append(ps)
+
+        # 5. Call Elo engine
+        elo_result = apply_match(
+            match_format=match_in.format,
+            scoreA=match_in.scoreA,
+            scoreB=match_in.scoreB,
+            players=player_stats,
+        )
+        # elo_result: {player_id: {"before": x, "after": y}}
+
+        # 6. Create Match record
+        match = Match(
+            format=match_in.format,
+            scoreA=match_in.scoreA,
+            scoreB=match_in.scoreB,
+        )
+        session.add(match)
+        session.commit()
+        session.refresh(match)
+
+        # 7. Create MatchPlayer records and update Player ratings
+        for p_in in match_in.players:
+            res = elo_result[p_in.player_id]
+            mp = MatchPlayer(
+                match_id=match.id,
+                player_id=p_in.player_id,
+                team_side=p_in.team_side,
+                winners=p_in.winners,
+                errors=p_in.errors,
+                rating_before=res["before"],
+                rating_after=res["after"],
+            )
+            session.add(mp)
+
+            # Update Player rating
+            player = next(pl for pl in players if pl.id == p_in.player_id)
+            player.rating = res["after"]
+
+        session.commit()
+
+        # 8. Return something useful
+        return {
+            "match_id": match.id,
+            "format": match.format,
+            "scoreA": match.scoreA,
+            "scoreB": match.scoreB,
+            "rating_updates": elo_result,
+        }
 
 @app.get("/players/{player_id}")
 def get_player(player_id: int):
@@ -425,11 +402,16 @@ def get_player(player_id: int):
 
 @app.get("/matches")
 def list_matches():
+    """
+    List recent matches with basic info and the players involved.
+    """
     with Session(engine) as session:
+        # Get all matches, newest first
         matches = session.exec(
             select(Match).order_by(Match.played_at.desc())
         ).all()
 
+        # For each match, pull its players
         result = []
         for m in matches:
             mp_rows = session.exec(
@@ -460,8 +442,6 @@ def list_matches():
                     "scoreA": m.scoreA,
                     "scoreB": m.scoreB,
                     "players": players,
-                    "source": m.source,
-                    "has_analytics": m.analytics is not None,
                 }
             )
 
@@ -646,179 +626,3 @@ def get_king():
             "eligible": eligible,
             "title": title,
         }
-
-@app.post("/video-analysis-result")
-def handle_video_analysis(result: VideoAnalysisResult):
-    match_in = MatchIn(
-        format=result.elo_payload.format,
-        scoreA=result.elo_payload.scoreA,
-        scoreB=result.elo_payload.scoreB,
-        players=result.elo_payload.players,
-    )
-
-    analytics_dict = result.dict()
-    # Don't store the nested elo_payload inside analytics
-    analytics_dict.pop("elo_payload", None)
-
-    with Session(engine) as session:
-        created = create_match_core(
-            session,
-            match_in,
-            source=result.source,
-            analytics=analytics_dict,
-        )
-
-    return created
-
-@app.get("/players/{player_id}/analytics-summary")
-def player_analytics_summary(player_id: int):
-    """
-    Compute career-long analytics summary for a player.
-    Only uses matches where analytics != null (i.e., video matches).
-    """
-    with Session(engine) as session:
-        # 1. Find all matches where this player participated
-        match_players = session.exec(
-            select(MatchPlayer).where(MatchPlayer.player_id == player_id)
-        ).all()
-
-        if not match_players:
-            return {
-                "player_id": player_id,
-                "matches_with_analytics": 0,
-                "avg_shot_speed": None,
-                "max_shot_speed": None,
-                "longest_rally": None,
-                "avg_rallies_per_match": None,
-            }
-
-        match_ids = [mp.match_id for mp in match_players]
-
-        # 2. Load matches including analytics
-        matches = session.exec(
-            select(Match).where(
-                Match.id.in_(match_ids),
-                Match.analytics.is_not(None)
-            )
-        ).all()
-
-        if not matches:
-            # No video-analytics matches for this player
-            return {
-                "player_id": player_id,
-                "matches_with_analytics": 0,
-                "avg_shot_speed": None,
-                "max_shot_speed": None,
-                "longest_rally": None,
-                "avg_rallies_per_match": None,
-            }
-
-        # --- Aggregation variables ---
-        shot_speeds = []
-        max_speeds = []
-        rally_lengths = []
-        rallies_per_match = []
-
-        for m in matches:
-            data = m.analytics  # the video JSON
-
-            # 3. Extract player stats from "players" array
-            for p in data.get("players", []):
-                if p["player_id"] != player_id:
-                    continue
-
-                stats = p.get("stats", {})
-
-                avg_speed = stats.get("avg_shot_speed_kmh")
-                max_speed = stats.get("max_shot_speed_kmh")
-
-                if avg_speed is not None:
-                    shot_speeds.append(avg_speed)
-                if max_speed is not None:
-                    max_speeds.append(max_speed)
-
-            # 4. Extract rally details
-            rallies = data.get("rallies", [])
-            rallies_per_match.append(len(rallies))
-
-            # longest rally = most shots in a rally
-            for r in rallies:
-                shots = r.get("shots", [])
-                rally_lengths.append(len(shots))
-
-        # --- Final aggregates ---
-        import statistics
-
-        return {
-            "player_id": player_id,
-            "matches_with_analytics": len(matches),
-
-            "avg_shot_speed": (
-                statistics.mean(shot_speeds) if shot_speeds else None
-            ),
-            "max_shot_speed": (
-                max(max_speeds) if max_speeds else None
-            ),
-            "longest_rally": (
-                max(rally_lengths) if rally_lengths else None
-            ),
-            "avg_rallies_per_match": (
-                statistics.mean(rallies_per_match) if rallies_per_match else None
-            ),
-        }
-
-@app.post("/video/process")
-def process_video(body: VideoProcessIn):
-    """
-    Called after a video has been uploaded to Supabase.
-    - `storage_path` points to the object in your Supabase bucket.
-    - `format` is "singles" | "doubles".
-    - `players` maps camera positions -> player IDs.
-
-    For now, this uses the stub analyze_video_to_json, which returns fake stats.
-    Later, analyze_video_to_json will call the real PICKLEBALLL_VIDEO_ANALYSIS.
-    """
-    # Build the list that runner.py expects
-    runner_players = [
-        {"position": p.position, "player_id": p.player_id}
-        for p in body.players
-    ]
-
-    # Run analysis (stub for now)
-    result = analyze_video_to_json(
-        video_path=body.storage_path,   # for now just the storage key
-        match_format=body.format,
-        players=runner_players,
-    )
-
-    # Extract Elo payload
-    elo_payload = result["elo_payload"]
-
-    match_in = MatchIn(
-        format=elo_payload["format"],
-        scoreA=elo_payload["scoreA"],
-        scoreB=elo_payload["scoreB"],
-        players=[
-            PlayerStatIn(
-                player_id=p["player_id"],
-                team_side=p["team_side"],
-                winners=p["winners"],
-                errors=p["errors"],
-            )
-            for p in elo_payload["players"]
-        ],
-    )
-
-    # Remove elo_payload before storing analytics
-    analytics_dict = dict(result)
-    analytics_dict.pop("elo_payload", None)
-
-    with Session(engine) as session:
-        created = create_match_core(
-            session,
-            match_in,
-            source="video_cv",
-            analytics=analytics_dict,
-        )
-
-    return created

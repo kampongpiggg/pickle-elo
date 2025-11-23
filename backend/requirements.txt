@@ -4,10 +4,3 @@ sqlmodel
 sqlalchemy
 pydantic
 python-multipart
-requests
-ultralytics
-opencv-python
-pandas
-numpy
-torch
-torchvision
