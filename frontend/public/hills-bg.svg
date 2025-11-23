@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <!-- Background -->
+  <rect width="1440" height="900" fill="#FFFDF6"></rect>
+
+  <!-- Soft pastel circles -->
+  <circle cx="220" cy="160" r="90" fill="#F8E8EB"></circle>
+  <circle cx="360" cy="110" r="60" fill="#E6F6FF"></circle>
+  <circle cx="1240" cy="160" r="80" fill="#FFF0C7"></circle>
+  <circle cx="270" cy="310" r="70" fill="#E8F9EF" opacity="0.8"></circle>
+
+  <!-- Hills layer 1 -->
+  <path d="
+      M0 650
+      C 250 620, 500 660, 780 640
+      C 1050 630, 1220 670, 1440 650
+      L 1440 900
+      L 0 900 Z
+    " fill="#CFE9C9"></path>
+
+  <!-- Hills layer 2 -->
+  <path d="
+      M0 710
+      C 260 690, 540 740, 840 720
+      C 1080 700, 1280 740, 1440 720
+      L 1440 900
+      L 0 900 Z
+    " fill="#B6E0B6"></path>
+</svg>
