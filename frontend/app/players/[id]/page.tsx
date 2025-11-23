@@ -77,7 +77,7 @@ function getArchetypeBadgeClasses(name: string): string {
 }
 
 const PLAYER_EMOJI_MAP: Record<string, string> = {
-  alexia: "🥵",
+  alexia: "💁‍♀️",
   xianhao: "🥵",
   shaoping: "🧐",
   brian: "😎",
