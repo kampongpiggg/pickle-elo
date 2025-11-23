@@ -230,6 +230,11 @@ export default function PlayerDetail({
 
   const title = getTitleFromRating(player.rating);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
+  const playerName = `${player.name} ${playerEmoji}`;
+>>>>>>> Stashed changes
 =======
   const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
   const playerName = `${player.name} ${playerEmoji}`;

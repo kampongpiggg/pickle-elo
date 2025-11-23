@@ -158,12 +158,18 @@ export default function MatchesPage() {
         matches.map((m) => {
           const playedDate = m.played_at
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             ? new Date(m.played_at).toLocaleString()
 =======
+=======
+>>>>>>> Stashed changes
             ? dayjsTz
                 .utc(m.played_at)
                 .tz(dayjsTz.tz.guess())
                 .format("LLLL")
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             : "Unknown time";
 
