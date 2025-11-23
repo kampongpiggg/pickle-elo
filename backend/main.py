@@ -6,6 +6,8 @@ from models import Player, Match, MatchPlayer
 from elo import PlayerStat, apply_match
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
+import os
+from dotenv import load_dotenv
 
 
 """
@@ -38,8 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-sqlite_url = "sqlite:///./pickle_elo.db"
-engine = create_engine(sqlite_url, echo=False)
+load_dotenv()
+supabase_db_url = os.getenv("SUPABASE_DB_URL")
+if not supabase_db_url:
+    raise RuntimeError("SUPABASE_DB_URL environment variable not set.")
+engine = create_engine(supabase_db_url, echo=False)
 QUEEN_PLAYER_ID = 1
 BASE_RATING = 1000.0
 
