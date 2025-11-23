@@ -30,7 +30,7 @@ export default async function LandingPage() {
   const totalMatches = matches.length;
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen" style={{ background: "transparent" }}>
       <div className="max-w-5xl mx-auto px-4 py-8 md:px-8 space-y-8">
         {/* Hero */}
         <section className="space-y-3">
@@ -61,9 +61,7 @@ export default async function LandingPage() {
           {/* Crown Holder card */}
           <div className="md:col-span-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <span role="img" aria-label="crown">
-                👑
-              </span>
+              <span role="img" aria-label="crown">👑</span>
               <span>Current Crown Holder</span>
             </h2>
 

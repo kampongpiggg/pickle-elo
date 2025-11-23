@@ -125,7 +125,10 @@ const archetypes = [
 
 export default function MethodologyPage() {
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 md:px-12 lg:px-24 space-y-10 text-justify">
+    <main
+      className="min-h-screen px-4 py-8 md:px-12 lg:px-24 space-y-10 text-justify"
+      style={{ background: "transparent" }}
+    >
       {/* Header */}
       <section className="space-y-2">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
