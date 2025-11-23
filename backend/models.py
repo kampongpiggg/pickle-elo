@@ -2,6 +2,10 @@ from typing import Optional
 from datetime import datetime
 from sqlmodel import SQLModel, Field
 
+# NEW:
+from sqlalchemy import Column
+from sqlalchemy.dialects.sqlite import JSON  # works fine for your sqlite DB
+
 class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -13,6 +17,13 @@ class Match(SQLModel, table=True):
     scoreA: int
     scoreB: int
     played_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # NEW FIELDS:
+    source: str = Field(default="manual")
+    analytics: Optional[dict] = Field(
+        default=None,
+        sa_column=Column(JSON)
+    )
 
 class MatchPlayer(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

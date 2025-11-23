@@ -11,6 +11,7 @@ const links = [
   { href: "/matches", label: "Match History" },
   { href: "/matches/new", label: "Enter New Match" },
   { href: "/live", label: "Live Match" },
+  { href: "/upload", label: "Upload Video" },
 ];
 
 export default function NavBar() {
@@ -56,7 +57,6 @@ export default function NavBar() {
           onClick={() => setOpen((prev) => !prev)}
           aria-label="Toggle navigation menu"
         >
-          {/* simple icon */}
           <span className="mr-1 text-xs font-medium">Menu</span>
           <span className="flex flex-col gap-0.5">
             <span className="block h-[2px] w-3 bg-gray-700" />
