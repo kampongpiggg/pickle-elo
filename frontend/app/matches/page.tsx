@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+import dayjsTz from "@/lib/dayjsTz";
 
 type MatchPlayer = {
   player_id: number;
@@ -134,7 +135,7 @@ export default function MatchesPage() {
         maxWidth: 900,
         margin: "1.5rem auto",
         padding: "1.5rem",
-        backgroundColor: "#ffffff",      // ✅ solid white wrapper
+        backgroundColor: "#ffffff", // white card
         borderRadius: 16,
         border: "1px solid #e5e7eb",
         boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
@@ -157,20 +158,10 @@ export default function MatchesPage() {
       {!loading &&
         matches.map((m) => {
           const playedDate = m.played_at
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            ? new Date(m.played_at).toLocaleString()
-=======
-=======
->>>>>>> Stashed changes
             ? dayjsTz
                 .utc(m.played_at)
                 .tz(dayjsTz.tz.guess())
                 .format("LLLL")
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
             : "Unknown time";
 
           const teamA = m.players.filter((p) => p.team_side === "A");
@@ -186,7 +177,7 @@ export default function MatchesPage() {
                 borderRadius: 8,
                 padding: "0.75rem 1rem",
                 marginBottom: "0.75rem",
-                backgroundColor: "#ffffff",     // ✅ each match card also solid white
+                backgroundColor: "#ffffff", // each match card also white
               }}
             >
               {/* Header row */}

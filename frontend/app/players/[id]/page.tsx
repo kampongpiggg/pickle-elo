@@ -76,8 +76,6 @@ function getArchetypeBadgeClasses(name: string): string {
   return "bg-gray-50 text-gray-700 border-gray-200";
 }
 
-<<<<<<< Updated upstream
-=======
 const PLAYER_EMOJI_MAP: Record<string, string> = {
   alexia: "🥵",
   xianhao: "🥵",
@@ -87,7 +85,6 @@ const PLAYER_EMOJI_MAP: Record<string, string> = {
   jiawei: "😡",
 };
 
->>>>>>> Stashed changes
 // Rating chart with axes
 function RatingHistoryChart({ points }: { points: RatingPoint[] }) {
   if (points.length === 0) return <p>No rating history yet.</p>;
@@ -229,16 +226,8 @@ export default function PlayerDetail({
     return <p style={{ padding: "1rem" }}>Loading player...</p>;
 
   const title = getTitleFromRating(player.rating);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
   const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
   const playerName = `${player.name} ${playerEmoji}`;
->>>>>>> Stashed changes
-=======
-  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
-  const playerName = `${player.name} ${playerEmoji}`;
->>>>>>> Stashed changes
 
   return (
     <main
@@ -246,7 +235,7 @@ export default function PlayerDetail({
         maxWidth: 800,
         margin: "1.5rem auto",
         padding: "1.5rem",
-        backgroundColor: "#ffffff", // 🔒 solid white card
+        backgroundColor: "#ffffff", // solid white card
         borderRadius: 16,
         border: "1px solid #e5e7eb",
         boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
@@ -254,8 +243,7 @@ export default function PlayerDetail({
     >
       {/* Header */}
       <section style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{player.name}</h1>
-
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{playerName}</h1>
         <p>
           Rating: <strong>{player.rating}</strong> ({title})
         </p>
@@ -294,7 +282,7 @@ export default function PlayerDetail({
           </span>
         </p>
 
-        {/* Archetypes with colored chips */}
+        {/* Archetypes */}
         {stats.archetypes.length > 0 && (
           <div style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
             <span style={{ marginRight: "0.5rem", color: "#555" }}>
