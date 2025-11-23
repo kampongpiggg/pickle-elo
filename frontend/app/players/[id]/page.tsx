@@ -76,15 +76,18 @@ function getArchetypeBadgeClasses(name: string): string {
   return "bg-gray-50 text-gray-700 border-gray-200";
 }
 
+<<<<<<< Updated upstream
+=======
 const PLAYER_EMOJI_MAP: Record<string, string> = {
-  'alexia': '🥵',
-  'xianhao': '🥵',
-  'shaoping': '🧐',
-  'brian': '😎',
-  'siewhan': '😈',
-  'jiawei': '😡'
-}
+  alexia: "🥵",
+  xianhao: "🥵",
+  shaoping: "🧐",
+  brian: "😎",
+  siewhan: "😈",
+  jiawei: "😡",
+};
 
+>>>>>>> Stashed changes
 // Rating chart with axes
 function RatingHistoryChart({ points }: { points: RatingPoint[] }) {
   if (points.length === 0) return <p>No rating history yet.</p>;
@@ -226,16 +229,33 @@ export default function PlayerDetail({
     return <p style={{ padding: "1rem" }}>Loading player...</p>;
 
   const title = getTitleFromRating(player.rating);
-
-  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? '🙂';
-
-  const playerName = `${player.name} ${playerEmoji}`
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
+  const playerName = `${player.name} ${playerEmoji}`;
+>>>>>>> Stashed changes
+=======
+  const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
+  const playerName = `${player.name} ${playerEmoji}`;
+>>>>>>> Stashed changes
 
   return (
-    <main style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem" }}>
+    <main
+      style={{
+        maxWidth: 800,
+        margin: "1.5rem auto",
+        padding: "1.5rem",
+        backgroundColor: "#ffffff", // 🔒 solid white card
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+      }}
+    >
       {/* Header */}
       <section style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{playerName}</h1>
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{player.name}</h1>
+
         <p>
           Rating: <strong>{player.rating}</strong> ({title})
         </p>
@@ -312,6 +332,7 @@ export default function PlayerDetail({
               border: "1px solid #ddd",
               borderRadius: 6,
               padding: "0.5rem 0.75rem",
+              backgroundColor: "#ffffff",
             }}
           >
             <div style={{ fontSize: "0.85rem", color: "#555" }}>
@@ -330,6 +351,7 @@ export default function PlayerDetail({
               border: "1px solid #ddd",
               borderRadius: 6,
               padding: "0.5rem 0.75rem",
+              backgroundColor: "#ffffff",
             }}
           >
             <div style={{ fontSize: "0.85rem", color: "#555" }}>
@@ -348,6 +370,7 @@ export default function PlayerDetail({
               border: "1px solid #ddd",
               borderRadius: 6,
               padding: "0.5rem 0.75rem",
+              backgroundColor: "#ffffff",
             }}
           >
             <div style={{ fontSize: "0.85rem", color: "#555" }}>
