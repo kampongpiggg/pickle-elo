@@ -4,14 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+// Desktop links — no Home.
 const links = [
-  { href: "/", label: "Home" },
   { href: "/methodology", label: "Methodology" },
   { href: "/players", label: "Meet the Players" },
   { href: "/matches", label: "Match History" },
   { href: "/matches/new", label: "Enter New Match" },
   { href: "/live", label: "Live Match" },
-  // 👇 New chemistry page link
   { href: "/chemistry", label: "Chemistry Network" },
 ];
 
@@ -37,8 +36,17 @@ export default function NavBar() {
     <nav className="relative border-b border-gray-200 bg-white shadow-sm">
       {/* Top bar */}
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2 md:py-3">
-        {/* Brand / title */}
-        <div className="text-sm font-semibold text-gray-800 md:text-base">
+
+        {/* Desktop brand (links to Home) */}
+        <Link
+          href="/"
+          className="hidden text-sm font-semibold text-gray-800 md:block md:text-base hover:text-gray-900"
+        >
+          The Victorian Throne
+        </Link>
+
+        {/* Mobile brand (NOT a link) */}
+        <div className="text-sm font-semibold text-gray-800 md:hidden">
           The Victorian Throne
         </div>
 
@@ -60,7 +68,6 @@ export default function NavBar() {
           type="button"
           className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 md:hidden bg-white"
           onClick={() => setOpen((prev) => !prev)}
-          aria-label="Toggle navigation menu"
         >
           <span className="mr-1 text-xs font-medium">
             {open ? "Close" : "Menu"}
@@ -81,7 +88,7 @@ export default function NavBar() {
         />
       )}
 
-      {/* Mobile slide-in drawer (RIGHT SIDE) */}
+      {/* Mobile slide-in drawer */}
       <div
         className={`fixed inset-y-0 right-0 z-50 w-64 transform bg-white shadow-xl transition-transform duration-300 ease-out md:hidden ${
           open ? "translate-x-0" : "translate-x-full"
@@ -102,6 +109,16 @@ export default function NavBar() {
 
         {/* Drawer nav links */}
         <div className="flex flex-col gap-2 px-4 py-4 bg-white">
+          {/* NEW: Mobile-only Home Link */}
+          <Link
+            href="/"
+            className={`${getLinkClasses("/")} w-full text-left`}
+            onClick={() => setOpen(false)}
+          >
+            Home
+          </Link>
+
+          {/* Existing Drawer Links */}
           {links.map((link) => (
             <Link
               key={link.href}

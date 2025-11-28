@@ -41,9 +41,22 @@ const WIDTH = 900;
 const HEIGHT = 600;
 const PADDING = 80;
 
+// Soft pastel palette (roughly matching Tailwind pastels)
+const PASTEL_COLORS = [
+  "#fee2e2", // red-100
+  "#dbeafe", // blue-100
+  "#dcfce7", // green-100
+  "#fef3c7", // amber-100
+  "#ede9fe", // indigo-100
+  "#cffafe", // teal-100
+  "#fae8ff", // fuchsia-100
+  "#fef9c3", // yellow-100
+];
+
 // Helpers for colors
 function edgeColor(edge: ChemistryEdge): string {
-  const hasMutualPositiveUplift = edge.chemistry > 0 && edge.uplift_a > 0 && edge.uplift_b > 0;
+  const hasMutualPositiveUplift =
+    edge.chemistry > 0 && edge.uplift_a > 0 && edge.uplift_b > 0;
   const isNegative = edge.chemistry < 0;
 
   if (hasMutualPositiveUplift) {
@@ -83,7 +96,9 @@ export default function ChemistryPage() {
 
         const res = await fetch(`${API_BASE}/chemistry`);
         if (!res.ok) {
-          throw new Error(`Failed to fetch chemistry network (status ${res.status})`);
+          throw new Error(
+            `Failed to fetch chemistry network (status ${res.status})`
+          );
         }
 
         const json: ChemistryResponse = await res.json();
@@ -101,13 +116,19 @@ export default function ChemistryPage() {
 
   const { positionedNodes, positionedEdges } = useMemo(() => {
     if (!data) {
-      return { positionedNodes: [] as PositionedNode[], positionedEdges: [] as PositionedEdge[] };
+      return {
+        positionedNodes: [] as PositionedNode[],
+        positionedEdges: [] as PositionedEdge[],
+      };
     }
 
     const { nodes, edges } = data;
 
     if (nodes.length === 0) {
-      return { positionedNodes: [] as PositionedNode[], positionedEdges: [] as PositionedEdge[] };
+      return {
+        positionedNodes: [] as PositionedNode[],
+        positionedEdges: [] as PositionedEdge[],
+      };
     }
 
     // Arrange nodes in a circle for now (simple, robust)
@@ -159,11 +180,13 @@ export default function ChemistryPage() {
             Doubles Chemistry Network
           </h1>
           <p className="text-sm md:text-base text-gray-600 mt-1">
-            Each node is a player. Edges show doubles pairs, colored by how their{" "}
-            <span className="font-medium">chemistry</span> behaves after adjusting for individual strength.
+            Each node is a player. Edges show doubles pairs, colored by how
+            their <span className="font-medium">chemistry</span> behaves after
+            adjusting for individual strength.
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Dark green = strong, mutual uplift synergy. Dark red = negative chemistry.
+            Dark green = strong, mutual uplift synergy. Dark red = negative
+            chemistry.
           </p>
         </div>
 
@@ -175,13 +198,17 @@ export default function ChemistryPage() {
               min={1}
               max={50}
               value={minGames}
-              onChange={(e) => setMinGames(Math.max(1, Number(e.target.value) || 1))}
+              onChange={(e) =>
+                setMinGames(Math.max(1, Number(e.target.value) || 1))
+              }
               className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </label>
           <p className="text-xs text-gray-500">
             Mutual uplift edges:{" "}
-            <span className="font-semibold text-emerald-700">{mutualEdgesCount}</span>
+            <span className="font-semibold text-emerald-700">
+              {mutualEdgesCount}
+            </span>
           </p>
         </div>
       </div>
@@ -200,7 +227,8 @@ export default function ChemistryPage() {
 
       {!loading && !error && positionedNodes.length === 0 && (
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          No chemistry data yet. Play some doubles matches to generate the network.
+          No chemistry data yet. Play some doubles matches to generate the
+          network.
         </div>
       )}
 
@@ -228,37 +256,42 @@ export default function ChemistryPage() {
                 ))}
 
                 {/* Nodes */}
-                {positionedNodes.map((node) => (
-                  <g key={node.id}>
-                    <circle
-                      cx={node.x}
-                      cy={node.y}
-                      r={18}
-                      fill="#f9fafb"
-                      stroke="#4b5563"
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={node.x}
-                      y={node.y - 12}
-                      textAnchor="middle"
-                      className="text-[9px] fill-gray-700"
-                    >
-                      {node.name}
-                    </text>
-                    <text
-                      x={node.x}
-                      y={node.y + 6}
-                      textAnchor="middle"
-                      className="text-[8px] fill-gray-500"
-                    >
-                      Elo {Math.round(node.rating)}
-                    </text>
-                    <a href={`/players/${node.id}`}>
-                      <title>{`${node.name} (click to view stats)`}</title>
-                    </a>
-                  </g>
-                ))}
+                {positionedNodes.map((node, idx) => {
+                  const fill =
+                    PASTEL_COLORS[idx % PASTEL_COLORS.length] || "#f9fafb";
+
+                  return (
+                    <g key={node.id}>
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={24} // bigger node
+                        fill={fill}
+                        stroke="#4b5563"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={node.x}
+                        y={node.y - 10}
+                        textAnchor="middle"
+                        className="text-[9px] fill-gray-800"
+                      >
+                        {node.name}
+                      </text>
+                      <text
+                        x={node.x}
+                        y={node.y + 8}
+                        textAnchor="middle"
+                        className="text-[9px] fill-gray-600"
+                      >
+                        {Math.round(node.rating)}
+                      </text>
+                      <a href={`/players/${node.id}`}>
+                        <title>{`${node.name} (click to view stats)`}</title>
+                      </a>
+                    </g>
+                  );
+                })}
               </svg>
             </div>
           </div>
@@ -281,7 +314,8 @@ export default function ChemistryPage() {
                   <span>Neutral or low-confidence connection</span>
                 </li>
                 <li className="mt-1">
-                  Edge thickness shows how strong the effect is compared to other pairs.
+                  Edge thickness shows how strong the effect is compared to
+                  other pairs.
                 </li>
               </ul>
             </div>
@@ -303,7 +337,8 @@ export default function ChemistryPage() {
                   .map((edge, idx) => {
                     const a = edge.sourceNode;
                     const b = edge.targetNode;
-                    const upliftAvg = (edge.uplift_a + edge.uplift_b) / 2;
+                    const upliftAvg =
+                      (edge.uplift_a + edge.uplift_b) / 2;
                     return (
                       <div
                         key={idx}
