@@ -21,6 +21,7 @@ type Player = {
   id: number;
   name: string;
   rating: number;
+  crowns_collected?: number; // NEW: crowns collected from backend
 };
 
 type PlayerStats = {
@@ -228,6 +229,7 @@ export default function PlayerDetail({
   const title = getTitleFromRating(player.rating);
   const playerEmoji = PLAYER_EMOJI_MAP[player.name.toLowerCase()] ?? "🙂";
   const playerName = `${player.name} ${playerEmoji}`;
+  const crowns = player.crowns_collected ?? 0;
 
   return (
     <main
@@ -246,6 +248,11 @@ export default function PlayerDetail({
         <h1 style={{ fontSize: "2rem", fontWeight: "bold" }}>{playerName}</h1>
         <p>
           Rating: <strong>{player.rating}</strong> ({title})
+        </p>
+
+        {/* Crowns collected */}
+        <p style={{ marginTop: "0.25rem", fontSize: "0.95rem" }}>
+          👑 Crowns collected: <strong>{crowns}</strong>
         </p>
 
         {/* Overall record */}

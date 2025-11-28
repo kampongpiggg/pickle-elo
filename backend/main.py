@@ -5,10 +5,9 @@ from pydantic import BaseModel
 from models import Player, Match, MatchPlayer
 from elo import PlayerStat, apply_match
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 from dotenv import load_dotenv
-
 
 """
 This WebApp is dedicated to my friends! I will have fun kicking their asses in pickleball.
@@ -20,15 +19,17 @@ class PlayerStatIn(BaseModel):
     winners: int    # points this player won directly
     errors: int     # points this player lost directly
 
+
 class MatchIn(BaseModel):
     format: str     # "singles" | "doubles"
     scoreA: int
     scoreB: int
     players: List[PlayerStatIn]
 
+
 class MatchUpdate(BaseModel):
-  scoreA: int
-  scoreB: int
+    scoreA: int
+    scoreB: int
 
 app = FastAPI()
 
@@ -45,6 +46,7 @@ supabase_db_url = os.getenv("SUPABASE_DB_URL")
 if not supabase_db_url:
     raise RuntimeError("SUPABASE_DB_URL environment variable not set.")
 engine = create_engine(supabase_db_url, echo=False)
+
 QUEEN_PLAYER_ID = 1
 BASE_RATING = 1000.0
 
@@ -52,6 +54,142 @@ def init_db():
     SQLModel.metadata.create_all(engine)
 
 init_db()
+
+ddef recompute_crowns_and_king(session: Session):
+    """
+    Replays all matches in chronological order, recomputes a rating timeline,
+    builds king/queen reign segments, and awards crowns:
+
+    - A reign is from the moment a player becomes top-rated until someone else
+      takes over (or now, for the current reign).
+    - If a reign lasts >= 14 days, that player earns 1 crown.
+    - crowns_collected is overwritten for all players based on history.
+
+    Returns:
+        (current_king_id, reign_start, rating_map, reigns)
+
+    Where:
+        reigns = [
+          {
+            "king_id": int,
+            "king_name": str,
+            "start": datetime,
+            "end": datetime,
+            "days": int,
+            "earned_crown": bool,
+          },
+          ...
+        ]
+    """
+    players = session.exec(select(Player)).all()
+    matches = session.exec(
+        select(Match).order_by(Match.played_at, Match.id)
+    ).all()
+
+    # Reset crowns for everyone first
+    crowns: dict[int, int] = {}
+    for p in players:
+        crowns[p.id] = 0
+
+    # Name lookup for later
+    name_map: dict[int, str] = {p.id: p.name for p in players}
+
+    # Reign segments we will build
+    reigns: list[dict] = []
+
+    if not players or not matches:
+        # No matches → no king; ensure DB crowns are zeroed
+        for p in players:
+            p.crowns_collected = 0
+        return None, None, {}, reigns
+
+    # Start everyone at base rating for this replay
+    rating_map: dict[int, float] = {p.id: float(BASE_RATING) for p in players}
+
+    current_king_id: int | None = None
+    reign_start: datetime | None = None
+
+    def close_reign(king_id: int | None, start: datetime | None, end: datetime):
+        """
+        Close a reign segment; if it lasted >= 14 days, award a crown
+        and append it to the reign list.
+        All datetimes are naive and interpreted in the same local timezone.
+        """
+        if king_id is None or start is None:
+            return
+        days_total = (end - start).total_seconds() / 86400.0
+        days_int = int(days_total)
+        earned_crown = days_total >= 14.0
+
+        if earned_crown:
+            crowns[king_id] = crowns.get(king_id, 0) + 1
+
+        reigns.append(
+            {
+                "king_id": king_id,
+                "king_name": name_map.get(king_id, f"Player {king_id}"),
+                "start": start,
+                "end": end,
+                "days": days_int,
+                "earned_crown": earned_crown,
+            }
+        )
+
+    for m in matches:
+        played_at: datetime = m.played_at  # naive local time
+
+        mp_rows = session.exec(
+            select(MatchPlayer).where(MatchPlayer.match_id == m.id)
+        ).all()
+
+        # Build PlayerStat using our replay rating_map as rating_before
+        stats: list[PlayerStat] = []
+        for mp in mp_rows:
+            before_rating = rating_map[mp.player_id]
+            ps = PlayerStat(
+                player_id=mp.player_id,
+                team_side=mp.team_side,
+                winners=mp.winners,
+                errors=mp.errors,
+                rating_before=before_rating,
+            )
+            stats.append(ps)
+
+        elo_result = apply_match(
+            match_format=m.format,
+            scoreA=m.scoreA,
+            scoreB=m.scoreB,
+            players=stats,
+        )
+
+        # Update ratings after this match
+        for mp in mp_rows:
+            new_after = elo_result[mp.player_id]["after"]
+            rating_map[mp.player_id] = new_after
+
+        # Determine top-rated player after this match
+        top_id = max(rating_map, key=lambda pid: rating_map[pid])
+
+        if current_king_id is None:
+            # First ever king
+            current_king_id = top_id
+            reign_start = played_at
+        elif top_id != current_king_id:
+            # Close previous reign and start a new one
+            close_reign(current_king_id, reign_start, played_at)
+            current_king_id = top_id
+            reign_start = played_at
+
+    # Close the final reign up to "now" (local naive time)
+    now = datetime.now()
+    close_reign(current_king_id, reign_start, now)
+
+    # Persist crowns into Player.crowns_collected
+    for p in players:
+        p.crowns_collected = crowns.get(p.id, 0)
+
+    # Caller is responsible for session.commit()
+    return current_king_id, reign_start, rating_map, reigns
 
 @app.get("/health")
 def health():
@@ -74,9 +212,6 @@ def create_player(name: str):
 
 @app.post("/matches")
 def create_match(match_in: MatchIn):
-    """
-    Create a match, apply Elo updates, store everything in the DB.
-    """
     with Session(engine) as session:
         # 1. Load all involved players from DB
         player_ids = [p.player_id for p in match_in.players]
@@ -186,9 +321,13 @@ def create_match(match_in: MatchIn):
             player = next(pl for pl in players if pl.id == p_in.player_id)
             player.rating = res["after"]
 
+        # 7.5 Recompute crowns based on full history
+        recompute_crowns_and_king(session)
+
+        # 8. Commit everything
         session.commit()
 
-        # 8. Return something useful
+        # 9. Return something useful
         return {
             "match_id": match.id,
             "format": match.format,
@@ -196,6 +335,7 @@ def create_match(match_in: MatchIn):
             "scoreB": match.scoreB,
             "rating_updates": elo_result,
         }
+
 
 @app.get("/players/{player_id}")
 def get_player(player_id: int):
@@ -407,9 +547,6 @@ def get_player(player_id: int):
 
 @app.get("/matches")
 def list_matches():
-    """
-    List recent matches with basic info and the players involved.
-    """
     with Session(engine) as session:
         # Get all matches, newest first
         matches = session.exec(
@@ -455,7 +592,7 @@ def list_matches():
 def recompute_all_ratings(session: Session):
     # Reset all players to base rating
     players = session.exec(select(Player)).all()
-    base_rating = 1000.0
+    base_rating = BASE_RATING
     rating_map = {p.id: base_rating for p in players}
     for p in players:
         p.rating = base_rating
@@ -501,6 +638,9 @@ def recompute_all_ratings(session: Session):
     for p in players:
         p.rating = rating_map[p.id]
 
+    # Recompute crowns off the same history
+    recompute_crowns_and_king(session)
+
     session.commit()
 
 @app.patch("/matches/{match_id}")
@@ -514,7 +654,7 @@ def update_match(match_id: int, upd: MatchUpdate):
         match.scoreB = upd.scoreB
         session.commit()
 
-        # Recompute Elo chain from scratch
+        # Recompute Elo chain from scratch (and crowns)
         recompute_all_ratings(session)
 
         return {"status": "ok", "match_id": match_id}
@@ -537,82 +677,30 @@ def delete_match(match_id: int):
         session.delete(match)
         session.commit()
 
-        # Recompute Elo chain
+        # Recompute Elo chain (and crowns)
         recompute_all_ratings(session)
 
         return {"status": "ok", "deleted_match_id": match_id}
 
 @app.get("/king")
 def get_king():
-    """
-    Compute the current 'King/Queen':
-    - Re-simulate ratings over all matches in chronological order.
-    - Track who is #1 after each match.
-    - The current #1 is the crown holder.
-    - We also return how many days they've held the crown.
-    """
     with Session(engine) as session:
-        players = session.exec(select(Player)).all()
-        matches = session.exec(
-            select(Match).order_by(Match.played_at, Match.id)
-        ).all()
+        current_king_id, king_since, rating_map, reigns = recompute_crowns_and_king(session)
 
-        if not players or not matches:
-            return {"king": None}
-
-        # Start everyone at base rating
-        rating_map = {p.id: BASE_RATING for p in players}
-
-        current_king_id = None
-        king_since: datetime | None = None
-
-        for m in matches:
-            mp_rows = session.exec(
-                select(MatchPlayer).where(MatchPlayer.match_id == m.id)
-            ).all()
-
-            # Build PlayerStat with current rating_map
-            stats: list[PlayerStat] = []
-            for mp in mp_rows:
-                ps = PlayerStat(
-                    player_id=mp.player_id,
-                    team_side=mp.team_side,
-                    winners=mp.winners,
-                    errors=mp.errors,
-                    rating_before=rating_map[mp.player_id],
-                )
-                stats.append(ps)
-
-            elo_result = apply_match(
-                match_format=m.format,
-                scoreA=m.scoreA,
-                scoreB=m.scoreB,
-                players=stats,
-            )
-
-            # Update ratings after this match
-            for mp in mp_rows:
-                new_after = elo_result[mp.player_id]["after"]
-                rating_map[mp.player_id] = new_after
-
-            # Determine top-rated player after this match
-            top_id = max(rating_map, key=lambda pid: rating_map[pid])
-
-            # If crown changes hands, reset 'since'
-            if top_id != current_king_id:
-                current_king_id = top_id
-                king_since = m.played_at
+        # Persist crowns_collected updates
+        session.commit()
 
         if current_king_id is None or king_since is None:
             return {"king": None}
 
-        # Compute how long they've held the crown
-        now = datetime.now(timezone.utc)
-        if king_since.tzinfo is None:
-            king_since = king_since.replace(tzinfo=timezone.utc)
-        days = (now - king_since).days
+        king_player = session.get(Player, current_king_id)
+        if not king_player:
+            return {"king": None}
 
-        king_player = next(p for p in players if p.id == current_king_id)
+        now = datetime.now()
+        days_float = (now - king_since).total_seconds() / 86400.0
+        days = int(days_float)
+
         rating = rating_map[current_king_id]
 
         # Apply Queen override if configured
@@ -622,6 +710,7 @@ def get_king():
 
         eligible = days >= 14  # has held crown for at least 14 days
 
+        # Serialize reigns: datetimes become ISO strings automatically via FastAPI/JSONResponse
         return {
             "id": king_player.id,
             "name": king_player.name,
@@ -630,4 +719,6 @@ def get_king():
             "days": days,
             "eligible": eligible,
             "title": title,
+            "crowns_collected": king_player.crowns_collected,
+            "reigns": reigns,
         }
