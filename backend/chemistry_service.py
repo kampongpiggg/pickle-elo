@@ -1,5 +1,5 @@
 from sqlmodel import Session, select, delete
-from .models import Match, MatchPlayer, PairChemistry
+from models import Match, MatchPlayer, PairChemistry
 from datetime import datetime
 from typing import Dict, List, Tuple
 import numpy as np

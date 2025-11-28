@@ -8,8 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-
-# 👇 NEW: import your chemistry recompute job
 from chemistry_service import recompute_chemistry
 
 """
