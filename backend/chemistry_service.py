@@ -123,6 +123,10 @@ def recompute_chemistry(
     D_alpha = P
     D_full = P + Q
 
+    # If somehow no players or no pairs, bail
+    if P == 0 or Q == 0:
+        return
+
     player_index: Dict[int, int] = {pid: idx for idx, pid in enumerate(player_ids)}
     pair_index: Dict[Tuple[int, int], int] = {
         pair: idx for idx, pair in enumerate(pair_ids)
@@ -142,7 +146,7 @@ def recompute_chemistry(
         total = points_a + points_b
 
         if total <= 0:
-            # ignore degenerate matches
+            # ignore degenerate matches, leave y[m], w[m] at zero
             continue
 
         p_m = points_a / total
@@ -168,6 +172,10 @@ def recompute_chemistry(
         X_full[m, P + pairA] += 1.0
         X_full[m, P + pairB] += -1.0
 
+    # If every match was degenerate (no points), bail
+    if np.all(w <= 0):
+        return
+
     X_alpha = X_alpha.tocsr()
     X_full = X_full.tocsr()
 
@@ -187,8 +195,6 @@ def recompute_chemistry(
 
     theta_full = model_full.coef_
     beta_full = theta_full[P:P + Q]  # chemistry coefficients per pair index
-
-    # (If you want t-stats, you'd need more work; we leave beta_t_stat = None for now.)
 
     # ---------- 2.5 Compute player baseline residuals R_i ----------
 
@@ -306,13 +312,13 @@ def recompute_chemistry(
         row = PairChemistry(
             player_id_a=a,
             player_id_b=b,
-            games_together=games,
-            beta_chemistry=beta_ij,
+            games_together=int(games),
+            beta_chemistry=float(beta_ij),
             beta_t_stat=None,  # optional: compute later
-            uplift_a_given_b=uplift_a_given_b[pair],
-            uplift_b_given_a=uplift_b_given_a[pair],
-            avg_point_share=avg_point_share[pair],
-            avg_point_share_base=avg_point_share_base[pair],
+            uplift_a_given_b=float(uplift_a_given_b[pair]),
+            uplift_b_given_a=float(uplift_b_given_a[pair]),
+            avg_point_share=float(avg_point_share[pair]),
+            avg_point_share_base=float(avg_point_share_base[pair]),
             last_updated=now,
         )
         session.add(row)

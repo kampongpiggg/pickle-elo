@@ -14,6 +14,7 @@ from chemistry_service import recompute_chemistry
 This WebApp is dedicated to my friends! I will have fun kicking their asses in pickleball.
 """
 
+
 class PlayerStatIn(BaseModel):
     player_id: int
     team_side: str  # "A" or "B"
@@ -31,6 +32,7 @@ class MatchIn(BaseModel):
 class MatchUpdate(BaseModel):
     scoreA: int
     scoreB: int
+
 
 app = FastAPI()
 
@@ -51,13 +53,15 @@ engine = create_engine(supabase_db_url, echo=False)
 QUEEN_PLAYER_ID = 1
 BASE_RATING = 1000.0
 
+
 def init_db():
     SQLModel.metadata.create_all(engine)
 
+
 init_db()
 
-def recompute_crowns_and_king(session: Session):
 
+def recompute_crowns_and_king(session: Session):
     players = session.exec(select(Player)).all()
     matches = session.exec(
         select(Match).order_by(Match.played_at, Match.id)
@@ -119,9 +123,31 @@ def recompute_crowns_and_king(session: Session):
             select(MatchPlayer).where(MatchPlayer.match_id == m.id)
         ).all()
 
+        # ---- Guard against malformed matches ----
+        if m.format == "singles":
+            if len(mp_rows) != 2:
+                # bad singles record, skip from Elo replay
+                continue
+            sides = {mp.team_side for mp in mp_rows}
+            if sides != {"A", "B"}:
+                continue
+        elif m.format == "doubles":
+            if len(mp_rows) != 4:
+                # bad doubles record, skip from Elo replay
+                continue
+            teamA = [mp for mp in mp_rows if mp.team_side == "A"]
+            teamB = [mp for mp in mp_rows if mp.team_side == "B"]
+            if len(teamA) != 2 or len(teamB) != 2:
+                # malformed doubles, skip
+                continue
+
         # Build PlayerStat using our replay rating_map as rating_before
         stats: list[PlayerStat] = []
         for mp in mp_rows:
+            # If some weird record references a player not in rating_map, skip match
+            if mp.player_id not in rating_map:
+                stats = []
+                break
             before_rating = rating_map[mp.player_id]
             ps = PlayerStat(
                 player_id=mp.player_id,
@@ -131,6 +157,9 @@ def recompute_crowns_and_king(session: Session):
                 rating_before=before_rating,
             )
             stats.append(ps)
+
+        if not stats:
+            continue
 
         elo_result = apply_match(
             match_format=m.format,
@@ -168,15 +197,18 @@ def recompute_crowns_and_king(session: Session):
     # Caller is responsible for session.commit()
     return current_king_id, reign_start, rating_map, reigns
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
 
 @app.get("/players")
 def list_players():
     with Session(engine) as session:
         players = session.exec(select(Player)).all()
         return players
+
 
 @app.post("/players")
 def create_player(name: str):
@@ -187,9 +219,32 @@ def create_player(name: str):
         session.refresh(player)
         return player
 
+
 @app.post("/matches")
 def create_match(match_in: MatchIn):
     with Session(engine) as session:
+        # 0. Basic validation of team sizes
+        teamA_in = [p for p in match_in.players if p.team_side == "A"]
+        teamB_in = [p for p in match_in.players if p.team_side == "B"]
+
+        if match_in.format == "singles":
+            if len(teamA_in) != 1 or len(teamB_in) != 1 or len(match_in.players) != 2:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Singles match must have exactly 2 players: 1 on team A and 1 on team B.",
+                )
+        elif match_in.format == "doubles":
+            if len(teamA_in) != 2 or len(teamB_in) != 2 or len(match_in.players) != 4:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Doubles match must have exactly 4 players: 2 on team A and 2 on team B.",
+                )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid format; must be 'singles' or 'doubles'.",
+            )
+
         # 1. Load all involved players from DB
         player_ids = [p.player_id for p in match_in.players]
         players = session.exec(
@@ -200,7 +255,10 @@ def create_match(match_in: MatchIn):
         if len(players) != len(set(player_ids)):
             found_ids = {p.id for p in players}
             missing = [pid for pid in player_ids if pid not in found_ids]
-            raise ValueError(f"Some player_ids not found in DB: {missing}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Some player_ids not found in DB: {missing}",
+            )
 
         # 2. If no winners/errors were tracked, auto-fill them from the score
         no_stats_tracked = all(
@@ -220,30 +278,27 @@ def create_match(match_in: MatchIn):
                 return [base + (1 if i < rem else 0) for i in range(n)]
 
             if match_in.format == "singles":
-                # Expect exactly 1 per team
-                if len(teamA) == 1 and len(teamB) == 1:
-                    a = teamA[0]
-                    b = teamB[0]
-                    # winners = points won, errors = points lost
-                    a.winners = match_in.scoreA
-                    a.errors = match_in.scoreB
-                    b.winners = match_in.scoreB
-                    b.errors = match_in.scoreA
+                # Expect exactly 1 per team (already validated)
+                a = teamA[0]
+                b = teamB[0]
+                # winners = points won, errors = points lost
+                a.winners = match_in.scoreA
+                a.errors = match_in.scoreB
+                b.winners = match_in.scoreB
+                b.errors = match_in.scoreA
             elif match_in.format == "doubles":
-                # Split team points across teammates
-                if len(teamA) >= 1:
-                    a_winners_split = split_points(match_in.scoreA, len(teamA))
-                    a_errors_split = split_points(match_in.scoreB, len(teamA))
-                    for i, p in enumerate(teamA):
-                        p.winners = a_winners_split[i]
-                        p.errors = a_errors_split[i]
+                # Split team points across teammates (already validated to be len 2 each)
+                a_winners_split = split_points(match_in.scoreA, len(teamA))
+                a_errors_split = split_points(match_in.scoreB, len(teamA))
+                for i, p in enumerate(teamA):
+                    p.winners = a_winners_split[i]
+                    p.errors = a_errors_split[i]
 
-                if len(teamB) >= 1:
-                    b_winners_split = split_points(match_in.scoreB, len(teamB))
-                    b_errors_split = split_points(match_in.scoreA, len(teamB))
-                    for i, p in enumerate(teamB):
-                        p.winners = b_winners_split[i]
-                        p.errors = b_errors_split[i]
+                b_winners_split = split_points(match_in.scoreB, len(teamB))
+                b_errors_split = split_points(match_in.scoreA, len(teamB))
+                for i, p in enumerate(teamB):
+                    p.winners = b_winners_split[i]
+                    p.errors = b_errors_split[i]
 
         # 3. Build rating map from current Player.rating
         rating_map = {p.id: p.rating for p in players}
@@ -301,7 +356,7 @@ def create_match(match_in: MatchIn):
         # 7.5 Recompute crowns based on full history
         recompute_crowns_and_king(session)
 
-        # 7.6 NEW: recompute chemistry if this is a doubles match
+        # 7.6 Recompute chemistry if this is a doubles match
         if match.format == "doubles":
             recompute_chemistry(session)
 
@@ -526,6 +581,7 @@ def get_player(player_id: int):
             "rating_history": rating_history,
         }
 
+
 @app.get("/matches")
 def list_matches():
     with Session(engine) as session:
@@ -570,6 +626,7 @@ def list_matches():
 
         return result
 
+
 def recompute_all_ratings(session: Session):
     # Reset all players to base rating
     players = session.exec(select(Player)).all()
@@ -588,9 +645,27 @@ def recompute_all_ratings(session: Session):
             select(MatchPlayer).where(MatchPlayer.match_id == m.id)
         ).all()
 
+        # ---- Guard against malformed matches ----
+        if m.format == "singles":
+            if len(mp_rows) != 2:
+                continue
+            sides = {mp.team_side for mp in mp_rows}
+            if sides != {"A", "B"}:
+                continue
+        elif m.format == "doubles":
+            if len(mp_rows) != 4:
+                continue
+            teamA = [mp for mp in mp_rows if mp.team_side == "A"]
+            teamB = [mp for mp in mp_rows if mp.team_side == "B"]
+            if len(teamA) != 2 or len(teamB) != 2:
+                continue
+
         # Build PlayerStat list using current rating_map as rating_before
-        stats = []
+        stats: list[PlayerStat] = []
         for mp in mp_rows:
+            if mp.player_id not in rating_map:
+                stats = []
+                break
             before_rating = rating_map[mp.player_id]
             ps = PlayerStat(
                 player_id=mp.player_id,
@@ -600,6 +675,9 @@ def recompute_all_ratings(session: Session):
                 rating_before=before_rating,
             )
             stats.append(ps)
+
+        if not stats:
+            continue
 
         elo_result = apply_match(
             match_format=m.format,
@@ -622,10 +700,11 @@ def recompute_all_ratings(session: Session):
     # Recompute crowns off the same history
     recompute_crowns_and_king(session)
 
-    # NEW: recompute chemistry based on updated matches
+    # Recompute chemistry based on updated matches
     recompute_chemistry(session)
 
     session.commit()
+
 
 @app.patch("/matches/{match_id}")
 def update_match(match_id: int, upd: MatchUpdate):
@@ -642,6 +721,7 @@ def update_match(match_id: int, upd: MatchUpdate):
         recompute_all_ratings(session)
 
         return {"status": "ok", "match_id": match_id}
+
 
 @app.delete("/matches/{match_id}")
 def delete_match(match_id: int):
@@ -665,6 +745,7 @@ def delete_match(match_id: int):
         recompute_all_ratings(session)
 
         return {"status": "ok", "deleted_match_id": match_id}
+
 
 @app.get("/king")
 def get_king():
