@@ -7,6 +7,7 @@ class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     rating: int = 1000  # starting Elo
+    crowns_collected: int = Field(default=0)
 
 class Match(SQLModel, table=True):
     __table_args__ = {"schema": "pickle_elo"}
