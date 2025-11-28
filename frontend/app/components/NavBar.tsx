@@ -32,7 +32,7 @@ export default function NavBar() {
   };
 
   return (
-    <nav className="relative border-b border-gray-200 bg-gray-50/90 backdrop-blur">
+    <nav className="relative border-b border-gray-200 bg-white shadow-sm">
       {/* Top bar */}
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2 md:py-3">
         {/* Brand / title */}
@@ -56,7 +56,7 @@ export default function NavBar() {
         {/* Mobile hamburger */}
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 md:hidden"
+          className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 md:hidden bg-white"
           onClick={() => setOpen((prev) => !prev)}
           aria-label="Toggle navigation menu"
         >
@@ -74,24 +74,24 @@ export default function NavBar() {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* Mobile slide-in drawer */}
+      {/* Mobile slide-in drawer (RIGHT SIDE) */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform duration-300 ease-out md:hidden ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 right-0 z-50 w-64 transform bg-white shadow-xl transition-transform duration-300 ease-out md:hidden ${
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 bg-white">
           <div className="text-base font-semibold text-gray-800">
             The Victorian Throne
           </div>
           <button
-            className="rounded-full border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            className="rounded-full border border-gray-300 px-2 py-1 text-xs text-gray-700 bg-white"
             onClick={() => setOpen(false)}
           >
             Close
@@ -99,7 +99,7 @@ export default function NavBar() {
         </div>
 
         {/* Drawer nav links */}
-        <div className="flex flex-col gap-2 px-4 py-4">
+        <div className="flex flex-col gap-2 px-4 py-4 bg-white">
           {links.map((link) => (
             <Link
               key={link.href}
