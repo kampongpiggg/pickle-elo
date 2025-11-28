@@ -32,7 +32,7 @@ export default function NavBar() {
   };
 
   return (
-    <nav className="border-b border-gray-200 bg-gray-50/90 backdrop-blur">
+    <nav className="relative border-b border-gray-200 bg-gray-50/90 backdrop-blur">
       {/* Top bar */}
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2 md:py-3">
         {/* Brand / title */}
@@ -43,7 +43,11 @@ export default function NavBar() {
         {/* Desktop links */}
         <div className="hidden items-center gap-2 md:flex">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className={getLinkClasses(link.href)}>
+            <Link
+              key={link.href}
+              href={link.href}
+              className={getLinkClasses(link.href)}
+            >
               {link.label}
             </Link>
           ))}
@@ -56,8 +60,9 @@ export default function NavBar() {
           onClick={() => setOpen((prev) => !prev)}
           aria-label="Toggle navigation menu"
         >
-          {/* simple icon */}
-          <span className="mr-1 text-xs font-medium">Menu</span>
+          <span className="mr-1 text-xs font-medium">
+            {open ? "Close" : "Menu"}
+          </span>
           <span className="flex flex-col gap-0.5">
             <span className="block h-[2px] w-3 bg-gray-700" />
             <span className="block h-[2px] w-3 bg-gray-700" />
@@ -66,23 +71,47 @@ export default function NavBar() {
         </button>
       </div>
 
-      {/* Mobile menu panel */}
+      {/* Mobile overlay */}
       {open && (
-        <div className="border-t border-gray-200 bg-gray-50 md:hidden">
-          <div className="mx-auto flex max-w-5xl flex-wrap gap-2 px-4 py-2">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={getLinkClasses(link.href)}
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
+          onClick={() => setOpen(false)}
+        />
       )}
+
+      {/* Mobile slide-in drawer */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform duration-300 ease-out md:hidden ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="text-base font-semibold text-gray-800">
+            The Victorian Throne
+          </div>
+          <button
+            className="rounded-full border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            onClick={() => setOpen(false)}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Drawer nav links */}
+        <div className="flex flex-col gap-2 px-4 py-4">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`${getLinkClasses(link.href)} w-full text-left`}
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </div>
     </nav>
   );
 }

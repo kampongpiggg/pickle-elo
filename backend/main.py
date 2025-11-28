@@ -55,32 +55,8 @@ def init_db():
 
 init_db()
 
-ddef recompute_crowns_and_king(session: Session):
-    """
-    Replays all matches in chronological order, recomputes a rating timeline,
-    builds king/queen reign segments, and awards crowns:
+def recompute_crowns_and_king(session: Session):
 
-    - A reign is from the moment a player becomes top-rated until someone else
-      takes over (or now, for the current reign).
-    - If a reign lasts >= 14 days, that player earns 1 crown.
-    - crowns_collected is overwritten for all players based on history.
-
-    Returns:
-        (current_king_id, reign_start, rating_map, reigns)
-
-    Where:
-        reigns = [
-          {
-            "king_id": int,
-            "king_name": str,
-            "start": datetime,
-            "end": datetime,
-            "days": int,
-            "earned_crown": bool,
-          },
-          ...
-        ]
-    """
     players = session.exec(select(Player)).all()
     matches = session.exec(
         select(Match).order_by(Match.played_at, Match.id)
