@@ -11,6 +11,8 @@ const links = [
   { href: "/matches", label: "Match History" },
   { href: "/matches/new", label: "Enter New Match" },
   { href: "/live", label: "Live Match" },
+  // 👇 New chemistry page link
+  { href: "/chemistry", label: "Chemistry Network" },
 ];
 
 export default function NavBar() {

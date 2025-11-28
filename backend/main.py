@@ -2,12 +2,15 @@ from fastapi import FastAPI, HTTPException
 from sqlmodel import SQLModel, create_engine, Session, select, delete
 from typing import List
 from pydantic import BaseModel
-from models import Player, Match, MatchPlayer
+from models import Player, Match, MatchPlayer, PairChemistry
 from elo import PlayerStat, apply_match
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+
+# 👇 NEW: import your chemistry recompute job
+from chemistry_service import recompute_chemistry
 
 """
 This WebApp is dedicated to my friends! I will have fun kicking their asses in pickleball.
@@ -299,6 +302,10 @@ def create_match(match_in: MatchIn):
 
         # 7.5 Recompute crowns based on full history
         recompute_crowns_and_king(session)
+
+        # 7.6 NEW: recompute chemistry if this is a doubles match
+        if match.format == "doubles":
+            recompute_chemistry(session)
 
         # 8. Commit everything
         session.commit()
@@ -617,6 +624,9 @@ def recompute_all_ratings(session: Session):
     # Recompute crowns off the same history
     recompute_crowns_and_king(session)
 
+    # NEW: recompute chemistry based on updated matches
+    recompute_chemistry(session)
+
     session.commit()
 
 @app.patch("/matches/{match_id}")
@@ -630,7 +640,7 @@ def update_match(match_id: int, upd: MatchUpdate):
         match.scoreB = upd.scoreB
         session.commit()
 
-        # Recompute Elo chain from scratch (and crowns)
+        # Recompute Elo chain from scratch (crowns + chemistry)
         recompute_all_ratings(session)
 
         return {"status": "ok", "match_id": match_id}
@@ -653,7 +663,7 @@ def delete_match(match_id: int):
         session.delete(match)
         session.commit()
 
-        # Recompute Elo chain (and crowns)
+        # Recompute Elo chain (and crowns + chemistry)
         recompute_all_ratings(session)
 
         return {"status": "ok", "deleted_match_id": match_id}
@@ -697,4 +707,78 @@ def get_king():
             "title": title,
             "crowns_collected": king_player.crowns_collected,
             "reigns": reigns,
+        }
+
+
+# NEW: Chemistry network endpoint
+@app.get("/chemistry")
+def get_chemistry_network():
+    """
+    Returns the full doubles chemistry network as:
+    {
+      "nodes": [{ id, name, rating }, ...],
+      "edges": [{
+        "source": player_id_a,
+        "target": player_id_b,
+        "games": games_together,
+        "chemistry": beta_chemistry,
+        "chemistry_norm": |beta| / max|beta|,
+        "uplift_a": uplift_a_given_b,
+        "uplift_b": uplift_b_given_a,
+        "point_share": avg_point_share,
+        "expected_point_share": avg_point_share_base
+      }, ...]
+    }
+    """
+    with Session(engine) as session:
+        pair_rows = session.exec(select(PairChemistry)).all()
+
+        # Collect all players that appear in chemistry
+        player_ids: set[int] = set()
+        for pc in pair_rows:
+            player_ids.add(pc.player_id_a)
+            player_ids.add(pc.player_id_b)
+
+        players = []
+        if player_ids:
+            players = session.exec(
+                select(Player).where(Player.id.in_(player_ids))
+            ).all()
+
+        nodes = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "rating": p.rating,
+            }
+            for p in players
+        ]
+
+        max_abs_beta = max((abs(pc.beta_chemistry) for pc in pair_rows), default=0.0)
+        if max_abs_beta == 0.0:
+            max_abs_beta = 1.0
+
+        edges = []
+        for pc in pair_rows:
+            # Skip very low-sample edges if desired
+            if pc.games_together < 2:
+                continue
+
+            edges.append(
+                {
+                    "source": pc.player_id_a,
+                    "target": pc.player_id_b,
+                    "games": pc.games_together,
+                    "chemistry": pc.beta_chemistry,
+                    "chemistry_norm": abs(pc.beta_chemistry) / max_abs_beta,
+                    "uplift_a": pc.uplift_a_given_b,
+                    "uplift_b": pc.uplift_b_given_a,
+                    "point_share": pc.avg_point_share,
+                    "expected_point_share": pc.avg_point_share_base,
+                }
+            )
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
         }

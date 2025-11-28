@@ -6,3 +6,6 @@ pydantic
 python-multipart
 psycopg2-binary
 python-dotenv
+numpy
+scipy
+scikit-learn
