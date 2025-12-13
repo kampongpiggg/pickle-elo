@@ -247,10 +247,10 @@ export default function PlayersPage() {
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Rating</th>
                 <th className="px-3 py-2">Title</th>
+                <th className="px-3 py-2">Crowns Collected</th>
                 <th className="px-3 py-2">Win Rate</th>
                 <th className="px-3 py-2">Avg Pts Won</th>
                 <th className="px-3 py-2">Avg Pts Lost</th>
-                <th className="px-3 py-2">Crowns Collected</th>
                 <th className="px-3 py-2">Archetypes</th>
               </tr>
             </thead>
